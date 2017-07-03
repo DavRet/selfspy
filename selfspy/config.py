@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Selfspy.  If not, see <http://www.gnu.org/licenses/>.
 
-DATA_DIR = '~/.selfspy'
+DATA_DIR = '../DATA'
 DBNAME = 'selfspy.sqlite'
 LOCK_FILE = 'selfspy.pid'
 LOCK = None

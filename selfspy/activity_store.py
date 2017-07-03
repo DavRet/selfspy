@@ -14,7 +14,7 @@
 
 # You should have received a copy of the GNU General Public License
 # along with Selfspy.  If not, see <http://www.gnu.org/licenses/>.
-
+import threading
 import time
 from datetime import datetime
 NOW = datetime.now
@@ -30,13 +30,40 @@ else:
     from selfspy import sniff_x as sniffer
 
 from selfspy import models
-from selfspy.models import Process, Window, Geometry, Click, Keys
+from selfspy.models import Process, Window, Geometry, Click, Keys, Clipboard
+
+from PyQt5 import QtWidgets
 
 
 SKIP_MODIFIERS = {"", "Shift_L", "Control_L", "Super_L", "Alt_L", "Super_R", "Control_R", "Shift_R", "[65027]"}  # [65027] is AltGr in X for some ungodly reason.
 
 SCROLL_BUTTONS = {4, 5, 6, 7}
 SCROLL_COOLOFF = 10  # seconds
+
+app = QtWidgets.QApplication(["", ""])
+clipboard = app.clipboard()
+
+mimeData = clipboard.mimeData()
+
+class ClipboardWatcher(threading.Thread):
+    def __init__(self, callback, pause=5.):
+        super(ClipboardWatcher, self).__init__()
+        self._callback = callback
+        self._pause = pause
+        self._stopping = False
+
+    def run(self):
+        recent_value = ""
+        while not self._stopping:
+            tmp_value = clipboard.text()
+            if tmp_value != recent_value:
+                recent_value = tmp_value
+                self._callback()
+            time.sleep(self._pause)
+
+    def stop(self):
+        self._stopping = True
+
 
 
 class Display:
@@ -76,27 +103,53 @@ class ActivityStore:
         self.started = NOW()
         self.last_screen_change = None
 
+        self.last_clipboard_change = None
+
     def trycommit(self):
+
         self.last_commit = time.time()
         for _ in range(1000):
             try:
                 self.session.commit()
                 break
             except sqlalchemy.exc.OperationalError:
+                print("exception")
                 time.sleep(1)
             except:
                 self.session.rollback()
 
     def run(self):
         self.session = self.session_maker()
-
         self.sniffer = sniffer.Sniffer()
         self.sniffer.screen_hook = self.got_screen_change
         self.sniffer.key_hook = self.got_key
         self.sniffer.mouse_button_hook = self.got_mouse_click
         self.sniffer.mouse_move_hook = self.got_mouse_move
 
+        # self.sniffer.clipboard_hook = self.got_changed_clipboard
+
+        # self.sniffer.clipboard_hook = self.got_changed_clipboard
+
+        watcher = ClipboardWatcher(self.got_changed_clipboard, 5.)
+        watcher.start()
         self.sniffer.run()
+
+
+
+
+    def got_changed_clipboard(self):
+        'Receives Clipboard Data'
+
+        print ("GOT CLIPBOARD")
+
+
+        clipboard_content = clipboard.text()
+        types = str(mimeData.formats())
+        mime_data = "mime"
+
+        self.store_clipboard(clipboard_content, types)
+
+
 
     def got_screen_change(self, process_name, window_name, win_x, win_y, win_width, win_height):
         """Receives a screen change and stores any changes.
@@ -108,6 +161,7 @@ class ActivityStore:
         win_y -- the y position of the window
         win_width -- the width of the window
         win_height -- the height of the window"""
+
 
         # skip the event if same arguments as last time are passed
         args = [process_name, window_name, win_x, win_y, win_width, win_height]
@@ -176,6 +230,26 @@ class ActivityStore:
             newpresses.append(lastpress)
 
         self.key_presses = newpresses
+
+
+    def store_clipboard(self, content, mime_data):
+
+
+        print ("storing clipboard")
+        clipboard_content = content
+        types = mime_data
+        mime_data = "mime"
+        print (clipboard_content)
+        print (types)
+        self.session.add(Clipboard (clipboard_content.encode('utf8'), types, mime_data,
+                              self.current_window.proc_id,
+                              self.current_window.win_id,
+                              self.current_window.geo_id))
+
+        self.trycommit()
+
+
+        self.started = NOW()
 
     def store_keys(self):
         """ Stores the current queued key-presses """

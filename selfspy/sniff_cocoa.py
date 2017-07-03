@@ -45,11 +45,14 @@ WAIT_ANIMATION = 1
 
 class Sniffer:
     def __init__(self):
+
         self.key_hook = lambda x: True
         self.mouse_button_hook = lambda x: True
         self.mouse_move_hook = lambda x: True
         self.screen_hook = lambda x: True
         self.last_check_windows = time.time()
+
+        self.clipboard_hook = lambda x: True
 
     def createAppDelegate(self):
         sc = self
@@ -99,6 +102,7 @@ class Sniffer:
             AppHelper.stopEventLoop()
         signal.signal(signal.SIGINT, handler)
         AppHelper.runEventLoop()
+
 
     def cancel(self):
         AppHelper.stopEventLoop()

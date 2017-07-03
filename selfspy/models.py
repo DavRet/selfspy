@@ -30,7 +30,7 @@ from sqlalchemy.orm import sessionmaker, relationship, backref
 
 
 def initialize(fname):
-    engine = create_engine('sqlite:///%s' % fname)
+    engine = create_engine('sqlite:///%s?check_same_thread=False' % fname)
     Base.metadata.create_all(engine)
     return sessionmaker(bind=engine)
 
@@ -48,6 +48,32 @@ class SpookMixin(object):
     id = Column(Integer, primary_key=True)
     created_at = Column(DateTime, default=datetime.datetime.now, index=True)
 
+
+class Clipboard(SpookMixin, Base):
+    clipboard_content = Column(Binary, nullable=False)
+    types = Column(Binary, nullable=False)
+    mime_type = Column(Binary, nullable=False)
+
+    process_id = Column(Integer, ForeignKey('process.id'), nullable=False, index=True)
+    process = relationship("Process", backref=backref('clipboard'))
+
+    window_id = Column(Integer, ForeignKey('window.id'), nullable=False)
+    window = relationship("Window", backref=backref('clipboard'))
+
+    geometry_id = Column(Integer, ForeignKey('geometry.id'), nullable=False)
+    geometry = relationship("Geometry", backref=backref('clipboard'))
+
+    def __init__(self, clipboard_content, types, mime_type, process_id, window_id, geometry_id):
+        self.clipboard_content = clipboard_content
+        self.types = types
+        self.mime_type = mime_type
+
+        self.process_id = process_id
+        self.window_id = window_id
+        self.geometry_id = geometry_id
+
+    def __repr__(self):
+        return "<Clipboard (%d, %d, %d)>" % (self.clipboard_content, self.types, self.mime_type)
 
 class Process(SpookMixin, Base):
     name = Column(Unicode, index=True, unique=True)
