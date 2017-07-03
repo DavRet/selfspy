@@ -46,7 +46,7 @@ clipboard = app.clipboard()
 mimeData = clipboard.mimeData()
 
 class ClipboardWatcher(threading.Thread):
-    def __init__(self, callback, pause=5.):
+    def __init__(self, callback, pause=1.):
         super(ClipboardWatcher, self).__init__()
         self._callback = callback
         self._pause = pause
@@ -130,7 +130,7 @@ class ActivityStore:
 
         # self.sniffer.clipboard_hook = self.got_changed_clipboard
 
-        watcher = ClipboardWatcher(self.got_changed_clipboard, 5.)
+        watcher = ClipboardWatcher(self.got_changed_clipboard, 1.)
         watcher.start()
         self.sniffer.run()
 

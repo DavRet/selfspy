@@ -64,7 +64,8 @@ class Clipboard(SpookMixin, Base):
     geometry = relationship("Geometry", backref=backref('clipboard'))
 
     def __init__(self, clipboard_content, types, mime_type, process_id, window_id, geometry_id):
-        self.clipboard_content = clipboard_content
+        self.encrypt_text(clipboard_content)
+
         self.types = types
         self.mime_type = mime_type
 
@@ -74,6 +75,10 @@ class Clipboard(SpookMixin, Base):
 
     def __repr__(self):
         return "<Clipboard (%d, %d, %d)>" % (self.clipboard_content, self.types, self.mime_type)
+
+    def encrypt_text(self, text, other_encrypter=None):
+        ztext = maybe_encrypt(text, other_encrypter=other_encrypter)
+        self.clipboard_content = ztext
 
 class Process(SpookMixin, Base):
     name = Column(Unicode, index=True, unique=True)
