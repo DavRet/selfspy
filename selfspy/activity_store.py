@@ -239,6 +239,9 @@ class ActivityStore:
         clipboard_content = content
         types = mime_data
         mime_data = "mime"
+
+        is_shortcut = True
+
         print (clipboard_content)
         print (types)
         self.session.add(Clipboard (clipboard_content.encode('utf8'), types, mime_data,

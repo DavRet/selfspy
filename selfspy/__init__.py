@@ -20,6 +20,9 @@
 import os
 import sys
 
+import shutil
+
+
 import argparse
 import ConfigParser
 
@@ -100,10 +103,15 @@ def main():
     lockname = os.path.join(args['data_dir'], cfg.LOCK_FILE)
     cfg.LOCK = LockFile(lockname)
     if cfg.LOCK.is_locked():
-        print ('%s is locked! I am probably already running.' % lockname)
-        print ('If you can find no selfspy process running, it is a stale lock and you can safely remove it.')
-        print ('Shutting down.')
-        sys.exit(1)
+        # print ('%s is locked! I am probably already running.' % lockname)
+        # print ('If you can find no selfspy process running, it is a stale lock and you can safely remove it.')
+        # print ('Shutting down.')
+        # sys.exit(1)
+        try:
+            shutil.rmtree(lockname+'.lock')
+        except OSError:
+            pass
+
 
     if args['no_text']:
         args['password'] = ""
