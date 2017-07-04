@@ -244,7 +244,27 @@ class ActivityStore:
 
         print (clipboard_content)
         print (types)
-        self.session.add(Clipboard (clipboard_content.encode('utf8'), types, mime_data,
+
+        keys = [press.key for press in self.key_presses]
+        timings = [press.time for press in self.key_presses]
+        add = lambda count, press: count + (0 if press.is_repeat else 1)
+        nrkeys = reduce(add, self.key_presses, 0)
+
+
+        lastTwoKeys = []
+
+        for key in keys[-2:]:
+            print (key)
+            lastTwoKeys.append(key)
+
+        print (lastTwoKeys)
+
+        hot_key_used = False
+
+        if ("Ctrl" in str(lastTwoKeys[0:])):
+            hot_key_used = True
+
+        self.session.add(Clipboard (clipboard_content.encode('utf8'), types, mime_data, hot_key_used,
                               self.current_window.proc_id,
                               self.current_window.win_id,
                               self.current_window.geo_id))
