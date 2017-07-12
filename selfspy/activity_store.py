@@ -16,6 +16,11 @@
 # along with Selfspy.  If not, see <http://www.gnu.org/licenses/>.
 import threading
 import time
+import pythoncom
+import win32clipboard
+import win32con
+
+
 from datetime import datetime
 NOW = datetime.now
 
@@ -134,8 +139,54 @@ class ActivityStore:
         watcher.start()
         self.sniffer.run()
 
+    def register_clipboard_formats(self):
+        """
+        Here we extract all of the formats from the qmimedata object and
+        register them.  This will give us an ID for each type.
+        This will return a dictionary with the ID's and descriptions for
+        each mime type.
+        """
+        mime_formats = mimeData.formats()
+        format_dictionary = dict()
+        for format in mime_formats:
+            id = win32clipboard.RegisterClipboardFormat(str(format))
+            format_dictionary[id] = format
 
+        return format_dictionary
 
+    def get_clipboard_formats(self):
+        """
+        What I want to do here is to check if any of the mime data
+        in the QMimeData object can/should be converted into a standard
+        windows clipboard format.
+        If it can I will extract the data here.
+
+        This essentially does what QWindowsMime probably does, but
+        since QWindowsMime is not in PyQt4 I have to do this myself.
+        """
+
+        format_dictionary = dict()
+        if mimeData.hasText():
+            id = win32con.CF_TEXT
+            data = str(mimeData.text())
+            format_dictionary[id] = data
+
+            id = win32con.CF_UNICODETEXT
+            data = unicode(mimeData.text())
+            format_dictionary[id] = data
+
+        if mimeData.hasUrls():
+            files = []
+            for url in mimeData.urls():
+                file_name = url.toLocalFile()
+                if file_name:
+                    files.append(str(file_name))
+
+            if files:
+                id = win32con.CF_HDROP
+                format_dictionary[id] = files
+
+        return format_dictionary
 
     def got_changed_clipboard(self):
         'Receives Clipboard Data'
@@ -147,6 +198,9 @@ class ActivityStore:
         types = str(mimeData.formats())
         mime_data = "mime"
 
+        print(self.register_clipboard_formats())
+
+    
         self.store_clipboard(clipboard_content, types)
 
 

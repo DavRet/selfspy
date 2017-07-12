@@ -72,6 +72,8 @@ class Clipboard(SpookMixin, Base):
 
         self.hot_key_used = hot_key_used
 
+        self.mime_type = mime_type
+
         self.process_id = process_id
         self.window_id = window_id
         self.geometry_id = geometry_id
