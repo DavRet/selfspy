@@ -155,16 +155,6 @@ class ActivityStore:
         return format_dictionary
 
     def get_clipboard_formats(self):
-        """
-        What I want to do here is to check if any of the mime data
-        in the QMimeData object can/should be converted into a standard
-        windows clipboard format.
-        If it can I will extract the data here.
-
-        This essentially does what QWindowsMime probably does, but
-        since QWindowsMime is not in PyQt4 I have to do this myself.
-        """
-
         format_dictionary = dict()
         if mimeData.hasText():
             id = win32con.CF_TEXT
@@ -200,8 +190,13 @@ class ActivityStore:
 
         print(self.register_clipboard_formats())
 
-    
-        self.store_clipboard(clipboard_content, types)
+        hasUrls = mimeData.hasUrls()
+        hastText = mimeData.hasText()
+        hasImage = mimeData.hasImage()
+        hasHtml = mimeData.hasHtml()
+
+        print("HaS Image", hasImage)
+        self.store_clipboard(clipboard_content, types, hasUrls, hastText, hasImage, hasHtml)
 
 
 
@@ -286,7 +281,7 @@ class ActivityStore:
         self.key_presses = newpresses
 
 
-    def store_clipboard(self, content, mime_data):
+    def store_clipboard(self, content, mime_data, hasUrls, hasText, hasImage, hasHtml):
 
 
         print ("storing clipboard")
@@ -318,7 +313,7 @@ class ActivityStore:
         if ("Ctrl" in str(lastTwoKeys[0:])):
             hot_key_used = True
 
-        self.session.add(Clipboard (clipboard_content.encode('utf8'), types, mime_data, hot_key_used,
+        self.session.add(Clipboard (clipboard_content.encode('utf8'), types, hot_key_used, hasHtml, hasImage, hasText, hasUrls,
                               self.current_window.proc_id,
                               self.current_window.win_id,
                               self.current_window.geo_id))
