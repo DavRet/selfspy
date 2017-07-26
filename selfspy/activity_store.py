@@ -16,17 +16,22 @@
 # along with Selfspy.  If not, see <http://www.gnu.org/licenses/>.
 import threading
 import time
+
+import PyQt5
 import pythoncom
 import win32clipboard
 import win32con
 
 
+
 from datetime import datetime
+
 NOW = datetime.now
 
 import sqlalchemy
 
 import platform
+
 if platform.system() == 'Darwin':
     from selfspy import sniff_cocoa as sniffer
 elif platform.system() == 'Windows':
@@ -39,8 +44,12 @@ from selfspy.models import Process, Window, Geometry, Click, Keys, Clipboard
 
 from PyQt5 import QtWidgets
 
+from PyQt5.QtCore import *
+from PyQt5.QtGui import *
+from PyQt5.QtWidgets import *
 
-SKIP_MODIFIERS = {"", "Shift_L", "Control_L", "Super_L", "Alt_L", "Super_R", "Control_R", "Shift_R", "[65027]"}  # [65027] is AltGr in X for some ungodly reason.
+SKIP_MODIFIERS = {"", "Shift_L", "Control_L", "Super_L", "Alt_L", "Super_R", "Control_R", "Shift_R",
+                  "[65027]"}  # [65027] is AltGr in X for some ungodly reason.
 
 SCROLL_BUTTONS = {4, 5, 6, 7}
 SCROLL_COOLOFF = 10  # seconds
@@ -49,6 +58,7 @@ app = QtWidgets.QApplication(["", ""])
 clipboard = app.clipboard()
 
 mimeData = clipboard.mimeData()
+
 
 class ClipboardWatcher(threading.Thread):
     def __init__(self, callback, pause=1.):
@@ -68,7 +78,6 @@ class ClipboardWatcher(threading.Thread):
 
     def stop(self):
         self._stopping = True
-
 
 
 class Display:
@@ -110,6 +119,9 @@ class ActivityStore:
 
         self.last_clipboard_change = None
 
+
+        clipboard.dataChanged.connect(self.testChanged)
+
     def trycommit(self):
 
         self.last_commit = time.time()
@@ -137,7 +149,14 @@ class ActivityStore:
 
         watcher = ClipboardWatcher(self.got_changed_clipboard, 1.)
         watcher.start()
+
+        # clipboard.changed.connect(lambda: self.got_changed_clipboard())
+
+
         self.sniffer.run()
+
+    def testChanged(self):
+        print("TEST")
 
     def register_clipboard_formats(self):
         """
@@ -183,7 +202,6 @@ class ActivityStore:
 
         print ("GOT CLIPBOARD")
 
-
         clipboard_content = clipboard.text()
         types = str(mimeData.formats())
         mime_data = "mime"
@@ -194,11 +212,10 @@ class ActivityStore:
         hastText = mimeData.hasText()
         hasImage = mimeData.hasImage()
         hasHtml = mimeData.hasHtml()
+        image = clipboard.image()
 
-        print("HaS Image", hasImage)
+        print("Has Image", hasImage)
         self.store_clipboard(clipboard_content, types, hasUrls, hastText, hasImage, hasHtml)
-
-
 
     def got_screen_change(self, process_name, window_name, win_x, win_y, win_width, win_height):
         """Receives a screen change and stores any changes.
@@ -210,7 +227,6 @@ class ActivityStore:
         win_y -- the y position of the window
         win_width -- the width of the window
         win_height -- the height of the window"""
-
 
         # skip the event if same arguments as last time are passed
         args = [process_name, window_name, win_x, win_y, win_width, win_height]
@@ -280,9 +296,7 @@ class ActivityStore:
 
         self.key_presses = newpresses
 
-
     def store_clipboard(self, content, mime_data, hasUrls, hasText, hasImage, hasHtml):
-
 
         print ("storing clipboard")
         clipboard_content = content
@@ -299,7 +313,6 @@ class ActivityStore:
         add = lambda count, press: count + (0 if press.is_repeat else 1)
         nrkeys = reduce(add, self.key_presses, 0)
 
-
         lastTwoKeys = []
 
         for key in keys[-2:]:
@@ -313,13 +326,13 @@ class ActivityStore:
         if ("Ctrl" in str(lastTwoKeys[0:])):
             hot_key_used = True
 
-        self.session.add(Clipboard (clipboard_content.encode('utf8'), types, hot_key_used, hasHtml, hasImage, hasText, hasUrls,
-                              self.current_window.proc_id,
-                              self.current_window.win_id,
-                              self.current_window.geo_id))
+        self.session.add(
+            Clipboard(clipboard_content.encode('utf8'), types, hot_key_used, hasHtml, hasImage, hasText, hasUrls,
+                      self.current_window.proc_id,
+                      self.current_window.win_id,
+                      self.current_window.geo_id))
 
         self.trycommit()
-
 
         self.started = NOW()
 

@@ -34,13 +34,13 @@ def initialize(fname):
     Base.metadata.create_all(engine)
     return sessionmaker(bind=engine)
 
+
 ENCRYPTER = None
 
 Base = declarative_base()
 
 
 class SpookMixin(object):
-
     @declared_attr
     def __tablename__(cls):
         return cls.__name__.lower()
@@ -60,8 +60,6 @@ class Clipboard(SpookMixin, Base):
     has_text = Column(Boolean)
     has_url = Column(Boolean)
 
-
-
     process_id = Column(Integer, ForeignKey('process.id'), nullable=False, index=True)
     process = relationship("Process", backref=backref('clipboard'))
 
@@ -71,7 +69,8 @@ class Clipboard(SpookMixin, Base):
     geometry_id = Column(Integer, ForeignKey('geometry.id'), nullable=False)
     geometry = relationship("Geometry", backref=backref('clipboard'))
 
-    def __init__(self, clipboard_content, types, hot_key_used, has_html, has_image, has_text, has_url, process_id, window_id, geometry_id):
+    def __init__(self, clipboard_content, types, hot_key_used, has_html, has_image, has_text, has_url, process_id,
+                 window_id, geometry_id):
         self.encrypt_text(clipboard_content)
 
         self.types = types
@@ -94,6 +93,7 @@ class Clipboard(SpookMixin, Base):
         ztext = maybe_encrypt(text, other_encrypter=other_encrypter)
         self.clipboard_content = ztext
 
+
 class Process(SpookMixin, Base):
     name = Column(Unicode, index=True, unique=True)
 
@@ -105,14 +105,41 @@ class Process(SpookMixin, Base):
 
 
 class Window(SpookMixin, Base):
-    title = Column(Unicode, index=True)
+    chrome_string = "Chrome"
+    text_processing_strings = ["Word", "word", "Office", "office"]
+
+    browser_strings = ["Chrome", "Firefox", "Edge", "Opera", "Safari", "chrome", "firefox", "edge", "opera", "safari"]
+
+    is_browser = Column(Boolean)
+    is_text_processing = Column(Boolean)
+
+    title = Column(Binary, index=True)
 
     process_id = Column(Integer, ForeignKey('process.id'), nullable=False, index=True)
     process = relationship("Process", backref=backref('windows'))
 
     def __init__(self, title, process_id):
-        self.title = title
+
+        for browser in self.browser_strings:
+            if not (title.find(browser) == -1):
+                self.is_browser = True
+                break
+            else:
+                self.is_browser = False
+
+        for text_processor in self.text_processing_strings:
+            if not (title.find(text_processor) == -1):
+                self.is_text_processing = True
+                break
+            else:
+                self.is_text_processing = False
+
+        self.encrypt_text(title)
         self.process_id = process_id
+
+    def encrypt_text(self, text, other_encrypter=None):
+        ztext = maybe_encrypt(text, other_encrypter=other_encrypter)
+        self.title = ztext
 
     def __repr__(self):
         return "<Window '%s'>" % (repr(self.title))
@@ -244,7 +271,7 @@ class Keys(SpookMixin, Base):
         return json.loads(zlib.decompress(keys))
 
     def to_humanreadable(self, text):
-        backrex = re.compile("\<\[Backspace\]x?(\d+)?\>",re.IGNORECASE)
+        backrex = re.compile("\<\[Backspace\]x?(\d+)?\>", re.IGNORECASE)
         matches = backrex.search(text)
         while matches is not None:
             backspaces = matches.group(1)
