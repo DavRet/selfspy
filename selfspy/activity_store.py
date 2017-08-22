@@ -20,8 +20,14 @@ import time
 import PyQt5
 import pythoncom
 import win32clipboard
+
+import sys
 import win32con
 
+from pynput import keyboard
+
+
+from PySide import QtGui, QtCore
 
 
 from datetime import datetime
@@ -48,7 +54,10 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 
-SKIP_MODIFIERS = {"", "Shift_L", "Control_L", "Super_L", "Alt_L", "Super_R", "Control_R", "Shift_R",
+from Tkinter import *
+
+
+SKIP_MODIFIERS = {"", "Shift_L", "Super_L", "Alt_L", "Super_R", "Shift_R",
                   "[65027]"}  # [65027] is AltGr in X for some ungodly reason.
 
 SCROLL_BUTTONS = {4, 5, 6, 7}
@@ -58,6 +67,35 @@ app = QtWidgets.QApplication(["", ""])
 clipboard = app.clipboard()
 
 mimeData = clipboard.mimeData()
+
+
+class Test(Text):
+    def __init__(self, master, **kw):
+        Text.__init__(self, master, **kw)
+        self.bind('<Control-c>', self.copy)
+        self.bind('<Control-x>', self.cut)
+        self.bind('<Control-v>', self.paste)
+
+    def copy(self, event=None):
+        self.clipboard_clear()
+        text = self.get("sel.first", "sel.last")
+        self.clipboard_append(text)
+
+    def cut(self, event):
+        self.copy()
+        self.delete("sel.first", "sel.last")
+
+    def paste(self, event):
+        print("PASTE")
+        text = self.selection_get(selection='CLIPBOARD')
+        self.insert('insert', text)
+
+
+def test():
+    r = Tk()
+    t = Test(r)
+    t.pack(fill='both', expand=1)
+    r.update()
 
 
 class ClipboardWatcher(threading.Thread):
@@ -119,8 +157,48 @@ class ActivityStore:
 
         self.last_clipboard_change = None
 
+        self.lastKeyWasCtrl = False
 
-        clipboard.dataChanged.connect(self.testChanged)
+
+        self.was_ctrl_c = False
+        self.was_ctrl_v = False
+        self.was_ctrl_x = False
+
+        #clipboard.dataChanged.connect(self.testChanged)
+        t = threading.Thread(target=self.qtApp)
+        t.daemon = True
+        t.start()
+
+        #clipboard.dataChanged.connect(self.testChanged)
+        # app.exec_()
+        # root = Tk()
+        # root.bind('<Control-v>', self.testPaste())
+
+    def qtApp(self):
+        app = QtGui.QApplication(sys.argv)
+        clipboard = app.clipboard()
+
+        clipboard.dataChanged.connect(self.got_changed_clipboard)
+
+        app.exec_()
+
+    def on_press(key):
+        try:
+            print('alphanumeric key {0} pressed'.format(
+                key.char))
+        except AttributeError:
+            print('special key {0} pressed'.format(
+                key))
+
+    def on_release(key):
+        print('{0} released'.format(
+            key))
+        if key == keyboard.Key.esc:
+            # Stop listener
+            return False
+
+    def testPaste(self):
+        print ("paste")
 
     def trycommit(self):
 
@@ -145,15 +223,17 @@ class ActivityStore:
 
         # self.sniffer.clipboard_hook = self.got_changed_clipboard
 
-        # self.sniffer.clipboard_hook = self.got_changed_clipboard
+        #watcher = ClipboardWatcher(self.got_changed_clipboard, 1.)
+        #watcher.start()
 
-        watcher = ClipboardWatcher(self.got_changed_clipboard, 1.)
-        watcher.start()
 
-        # clipboard.changed.connect(lambda: self.got_changed_clipboard())
-
+        # root = Tk()
+        # root.bind('<Control-v>', self.testPaste())
+        # root.update()
 
         self.sniffer.run()
+
+
 
     def testChanged(self):
         print("TEST")
@@ -202,20 +282,7 @@ class ActivityStore:
 
         print ("GOT CLIPBOARD")
 
-        clipboard_content = clipboard.text()
-        types = str(mimeData.formats())
-        mime_data = "mime"
-
-        print(self.register_clipboard_formats())
-
-        hasUrls = mimeData.hasUrls()
-        hastText = mimeData.hasText()
-        hasImage = mimeData.hasImage()
-        hasHtml = mimeData.hasHtml()
-        image = clipboard.image()
-
-        print("Has Image", hasImage)
-        self.store_clipboard(clipboard_content, types, hasUrls, hastText, hasImage, hasHtml)
+        self.store_clipboard()
 
     def got_screen_change(self, process_name, window_name, win_x, win_y, win_width, win_height):
         """Receives a screen change and stores any changes.
@@ -229,6 +296,7 @@ class ActivityStore:
         win_height -- the height of the window"""
 
         # skip the event if same arguments as last time are passed
+
         args = [process_name, window_name, win_x, win_y, win_width, win_height]
         if self.last_screen_change == args:
             return
@@ -296,14 +364,28 @@ class ActivityStore:
 
         self.key_presses = newpresses
 
-    def store_clipboard(self, content, mime_data, hasUrls, hasText, hasImage, hasHtml):
+    def store_clipboard(self):
 
-        print ("storing clipboard")
-        clipboard_content = content
-        types = mime_data
-        mime_data = "mime"
+        clipboard_content = clipboard.text()
+        types = str(mimeData.formats())
 
-        is_shortcut = True
+        print(self.register_clipboard_formats())
+
+        hasUrls = mimeData.hasUrls()
+        hasText = mimeData.hasText()
+        hasImage = mimeData.hasImage()
+        hasHtml = mimeData.hasHtml()
+        image = clipboard.image()
+
+        image_height = image.height()
+        image_width = image.width()
+
+        print("WAS CTRL+C", self.was_ctrl_c)
+        print("WAS CTRL+V", self.was_ctrl_v)
+        print("WAS CTRL+X", self.was_ctrl_x)
+
+
+
 
         print (clipboard_content)
         print (types)
@@ -315,11 +397,17 @@ class ActivityStore:
 
         lastTwoKeys = []
 
+        hot_key_used = False
+
+
         for key in keys[-2:]:
-            print (key)
+            print ("KEY", key)
+            print(str(key))
+
+
             lastTwoKeys.append(key)
 
-        print (lastTwoKeys)
+        print ("LAST TWO KEYS", lastTwoKeys)
 
         hot_key_used = False
 
@@ -327,7 +415,7 @@ class ActivityStore:
             hot_key_used = True
 
         self.session.add(
-            Clipboard(clipboard_content.encode('utf8'), types, hot_key_used, hasHtml, hasImage, hasText, hasUrls,
+            Clipboard(clipboard_content.encode('utf8'), types, hasHtml, hasImage, hasText, hasUrls, image_height, image_width, self.was_ctrl_c, self.was_ctrl_v, self.was_ctrl_x,
                       self.current_window.proc_id,
                       self.current_window.win_id,
                       self.current_window.geo_id))
@@ -363,7 +451,6 @@ class ActivityStore:
                                   self.current_window.geo_id))
 
             self.trycommit()
-
             self.started = NOW()
             self.key_presses = []
             self.last_key_time = time.time()
@@ -376,15 +463,55 @@ class ActivityStore:
                   specifier, i.e: SHIFT or SHIFT_L/SHIFT_R, ALT, CTRL
             string is the string representation of the key press
             repeat is True if the current key is a repeat sent by the keyboard """
+
         now = time.time()
+
+
+        print keycode
+
+        self.was_ctrl_c = False
+        self.was_ctrl_v = False
+        self.was_ctrl_x = False
+
+        if (keycode == '22' or string == 'v'):
+            print "was v"
+            if (self.lastKeyWasCtrl):
+                print ("STRG-V")
+                self.was_ctrl_v = True
+                self.store_clipboard()
+
+
+
+        if (keycode == '3' or string == 'c'):
+            print "was c"
+            if (self.lastKeyWasCtrl):
+                print ("STRG-C")
+                self.was_ctrl_c = True
+
+        if (keycode == '24' or string == 'x'):
+            print "was x"
+            if (self.lastKeyWasCtrl):
+                print ("STRG-X")
+                self.was_ctrl_x = True
+
+        if(len(state)):
+            if(state[0] == 'Ctrl'):
+                print "was control"
+                self.lastKeyWasCtrl = True
+            else:
+                self.lastKeyWasCtrl = False
+        else:
+            self.lastKeyWasCtrl = False
+
 
         if string in SKIP_MODIFIERS:
             return
-
         if len(state) > 1 or (len(state) == 1 and state[0] != "Shift"):
             string = '<[%s: %s]>' % (' '.join(state), string)
         elif len(string) > 1:
             string = '<[%s]>' % string
+
+        # print ("STRING AFTER", string)
 
         self.key_presses.append(KeyPress(string, now - self.last_key_time, is_repeat))
         self.last_key_time = now
@@ -432,3 +559,5 @@ class ActivityStore:
             k.encrypt_text(dtext, new_encrypter)
             k.encrypt_keys(dkeys, new_encrypter)
         self.session.commit()
+
+

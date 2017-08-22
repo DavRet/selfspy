@@ -22,11 +22,12 @@ import sys
 
 import shutil
 
-
 import argparse
 import ConfigParser
 
+import PyQt4
 import PyQt5
+import win32con
 from lockfile import LockFile
 
 import hashlib
@@ -38,20 +39,37 @@ from selfspy import check_password
 
 from selfspy import config as cfg
 
+import win32api
+import win32clipboard
+
+import threading
+
 from PyQt5 import QtWidgets
+
+from PySide import QtGui, QtCore
+
+
+from Tkinter import *
+
+ROOT = Tk()
+LABEL = Label(ROOT, text="Hello, world!")
+LABEL.pack()
+
+import sys
 
 
 def parse_config():
     conf_parser = argparse.ArgumentParser(description=__doc__, add_help=False,
                                           formatter_class=argparse.RawDescriptionHelpFormatter)
     conf_parser.add_argument("-c", "--config",
-                             help="Config file with defaults. Command line parameters will override those given in the config file. The config file must start with a \"[Defaults]\" section, followed by [argument]=[value] on each line.", metavar="FILE")
+                             help="Config file with defaults. Command line parameters will override those given in the config file. The config file must start with a \"[Defaults]\" section, followed by [argument]=[value] on each line.",
+                             metavar="FILE")
     args, remaining_argv = conf_parser.parse_known_args()
 
     defaults = {}
     if args.config:
         if not os.path.exists(args.config):
-            raise  EnvironmentError("Config file %s doesn't exist." % args.config)
+            raise EnvironmentError("Config file %s doesn't exist." % args.config)
         config = ConfigParser.SafeConfigParser()
         config.read([args.config])
         defaults = dict(config.items('Defaults'))
@@ -61,15 +79,23 @@ def parse_config():
             config.read([os.path.expanduser('~/.selfspy/selfspy.conf')])
             defaults = dict(config.items('Defaults'))
 
-    parser = argparse.ArgumentParser(description='Monitor your computer activities and store them in an encrypted database for later analysis or disaster recovery.', parents=[conf_parser])
+    parser = argparse.ArgumentParser(
+        description='Monitor your computer activities and store them in an encrypted database for later analysis or disaster recovery.',
+        parents=[conf_parser])
     parser.set_defaults(**defaults)
-    parser.add_argument('-p', '--password', help='Encryption password. If you want to keep your database unencrypted, specify -p "" here. If you don\'t specify a password in the command line arguments or in a config file, a dialog will pop up, asking for the password. The most secure is to not use either command line or config file but instead type it in on startup.')
-    parser.add_argument('-d', '--data-dir', help='Data directory for selfspy, where the database is stored. Remember that Selfspy must have read/write access. Default is %s' % cfg.DATA_DIR, default=cfg.DATA_DIR)
+    parser.add_argument('-p', '--password',
+                        help='Encryption password. If you want to keep your database unencrypted, specify -p "" here. If you don\'t specify a password in the command line arguments or in a config file, a dialog will pop up, asking for the password. The most secure is to not use either command line or config file but instead type it in on startup.')
+    parser.add_argument('-d', '--data-dir',
+                        help='Data directory for selfspy, where the database is stored. Remember that Selfspy must have read/write access. Default is %s' % cfg.DATA_DIR,
+                        default=cfg.DATA_DIR)
 
-    parser.add_argument('-n', '--no-text', action='store_true', help='Do not store what you type. This will make your database smaller and less sensitive to security breaches. Process name, window titles, window geometry, mouse clicks, number of keys pressed and key timings will still be stored, but not the actual letters. Key timings are stored to enable activity calculation in selfstats. If this switch is used, you will never be asked for password.')
-    parser.add_argument('-r', '--no-repeat', action='store_true', help='Do not store special characters as repeated characters.')
+    parser.add_argument('-n', '--no-text', action='store_true',
+                        help='Do not store what you type. This will make your database smaller and less sensitive to security breaches. Process name, window titles, window geometry, mouse clicks, number of keys pressed and key timings will still be stored, but not the actual letters. Key timings are stored to enable activity calculation in selfstats. If this switch is used, you will never be asked for password.')
+    parser.add_argument('-r', '--no-repeat', action='store_true',
+                        help='Do not store special characters as repeated characters.')
 
-    parser.add_argument('--change-password', action="store_true", help='Change the password used to encrypt the keys columns and exit.')
+    parser.add_argument('--change-password', action="store_true",
+                        help='Change the password used to encrypt the keys columns and exit.')
 
     return parser.parse_args()
 
@@ -82,7 +108,20 @@ def make_encrypter(password):
     return encrypter
 
 
+def paste():
+    win32clipboard.OpenClipboard(0)
+    data = win32clipboard.GetClipboardData()
+    win32clipboard.CloseClipboard()
+    return data
+
+
 def main():
+    # win32clipboard.OpenClipboard()
+    # win32clipboard.EmptyClipboard()
+    # win32clipboard.SetClipboardData(win32clipboard.CF_TEXT, None)
+    # win32clipboard.CloseClipboard()
+
+
     try:
         args = vars(parse_config())
     except EnvironmentError as e:
@@ -108,10 +147,9 @@ def main():
         # print ('Shutting down.')
         # sys.exit(1)
         try:
-            shutil.rmtree(lockname+'.lock')
+            shutil.rmtree(lockname + '.lock')
         except OSError:
             pass
-
 
     if args['no_text']:
         args['password'] = ""
@@ -146,14 +184,62 @@ def main():
                            store_text=(not args['no_text']),
                            repeat_char=(not args['no_repeat']))
     cfg.LOCK.acquire()
+
     try:
         astore.run()
     except SystemExit:
         astore.close()
+
     except KeyboardInterrupt:
         pass
     # In OS X this is has to be released in sniff_cocoa
     cfg.LOCK.release()
 
+
+def testFunction():
+    print ("test")
+
+
+def window():
+    app = QtWidgets.QApplication(sys.argv)
+
+    win = QtWidgets.QDialog()
+    b1 = QtWidgets.QPushButton(win)
+    b1.setText("Button1")
+    b1.move(50, 20)
+    b1.clicked.connect(testFunction)
+
+    b2 = QtWidgets.QPushButton(win)
+    b2.setText("Button2")
+    b2.move(50, 50)
+
+    win.setGeometry(100, 100, 200, 100)
+    win.setWindowTitle("PyQt")
+    win.show()
+
+
+def qtApp():
+    app = QtGui.QApplication(sys.argv)
+    clipboard = app.clipboard()
+
+    clipboard.dataChanged.connect(testChanged)
+
+    QtGui.QApplication.processEvents()
+
+    app.exec_()  # <---------- code blocks over here
+
+
+def testChanged():
+    print ("TEST")
+
+
 if __name__ == '__main__':
+    # main()
+    # t = threading.Thread(target=qtApp)
+    # t.daemon = True
+    # t.start()
+
+    #selfspy = main()
+    #selfspy.start()
+
     main()

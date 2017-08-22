@@ -53,12 +53,19 @@ class Clipboard(SpookMixin, Base):
     clipboard_content = Column(Binary, nullable=False)
     types = Column(Binary, nullable=False)
 
-    hot_key_used = Column(Boolean)
+    was_ctrl_c = Column(Boolean)
+    was_ctrl_v = Column(Boolean)
+    was_ctrl_x = Column(Boolean)
+
 
     has_html = Column(Boolean)
     has_image = Column(Boolean)
     has_text = Column(Boolean)
     has_url = Column(Boolean)
+
+    image_height = Column(Integer)
+    image_width = Column(Integer)
+
 
     process_id = Column(Integer, ForeignKey('process.id'), nullable=False, index=True)
     process = relationship("Process", backref=backref('clipboard'))
@@ -69,22 +76,28 @@ class Clipboard(SpookMixin, Base):
     geometry_id = Column(Integer, ForeignKey('geometry.id'), nullable=False)
     geometry = relationship("Geometry", backref=backref('clipboard'))
 
-    def __init__(self, clipboard_content, types, hot_key_used, has_html, has_image, has_text, has_url, process_id,
+    def __init__(self, clipboard_content, types, has_html, has_image, has_text, has_url, image_height, image_width, was_ctrl_c, was_ctrl_v, was_ctrl_x, process_id,
                  window_id, geometry_id):
         self.encrypt_text(clipboard_content)
 
         self.types = types
-
-        self.hot_key_used = hot_key_used
 
         self.has_html = has_html
         self.has_text = has_text
         self.has_image = has_image
         self.has_url = has_url
 
+        self.was_ctrl_c = was_ctrl_c
+        self.was_ctrl_v = was_ctrl_v
+        self.was_ctrl_x = was_ctrl_x
+
+        self.image_height = image_height
+        self.image_width = image_width
+
         self.process_id = process_id
         self.window_id = window_id
         self.geometry_id = geometry_id
+
 
     def __repr__(self):
         return "<Clipboard (%d, %d, %d)>" % (self.clipboard_content, self.types, self.mime_type)

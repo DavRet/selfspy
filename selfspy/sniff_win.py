@@ -59,11 +59,15 @@ class SnifferThread(threading.Thread):
             self.mouse_button_hook(1, loc[0], loc[1])
         if event.MessageName == "mouse middle down":
             self.mouse_button_hook(2, loc[0], loc[1])
-        try:
-            string_event = event.WindowName.decode(self.encoding)
-        except AttributeError:
-            string_event = ""
-        self.screen_hook(str(event.Window), string_event, loc[0], loc[1], 0, 0)
+        # try:
+        #     string_event = event.WindowName.decode(self.encoding)
+        #     #window_name = event.WindowNamea.encode('utf-8')
+        #     #string_event = window_name.decode(self.encoding)
+        # except AttributeError:
+        #     string_event = ""
+
+        # self.screen_hook(str(event.Window), string_event, loc[0], loc[1], 0, 0)
+        self.screen_hook(str(event.Window), event.WindowName, loc[0], loc[1], 0, 0)
         return True
 
     def MouseMove(self, event):
