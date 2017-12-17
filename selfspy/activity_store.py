@@ -22,13 +22,30 @@ import pythoncom
 import win32clipboard
 
 import sys
+import ctypes
+from ctypes import wintypes
+
+# Win32 imports
+import win32api
+import win32gui
 import win32con
+import win32file
+import win32pipe
+import win32process
+import win32security
+from win32event import CreateEvent, SetEvent, WaitForSingleObject
+from win32event import MsgWaitForMultipleObjects, WAIT_OBJECT_0
+from win32event import WAIT_TIMEOUT, INFINITE, QS_ALLINPUT, QS_POSTMESSAGE
+from win32event import QS_ALLEVENTS
+
+import pywintypes
+
+byref = ctypes.byref
+user32 = ctypes.windll.user32
 
 from pynput import keyboard
 
-
 from PySide import QtGui, QtCore
-
 
 from datetime import datetime
 
@@ -56,6 +73,7 @@ from PyQt5.QtWidgets import *
 
 from Tkinter import *
 
+from pyHook import cpyHook
 
 SKIP_MODIFIERS = {"", "Shift_L", "Super_L", "Alt_L", "Super_R", "Shift_R",
                   "[65027]"}  # [65027] is AltGr in X for some ungodly reason.
@@ -159,20 +177,57 @@ class ActivityStore:
 
         self.lastKeyWasCtrl = False
 
-
         self.was_ctrl_c = False
         self.was_ctrl_v = False
         self.was_ctrl_x = False
 
-        #clipboard.dataChanged.connect(self.testChanged)
         t = threading.Thread(target=self.qtApp)
         t.daemon = True
         t.start()
 
-        #clipboard.dataChanged.connect(self.testChanged)
-        # app.exec_()
+        # message_map = {
+        #     win32con.WM_RENDERFORMAT: self.testHook
+        # }
+        # hwnd = win32gui.GetActiveWindow()
+        #
+        # msgShellHook = ctypes.windll.user32.RegisterWindowMessageA("SHELLHOOK")
+        #
+        # hHook = ctypes.windll.user32.SetWindowsHookExA(win32con.WM_RENDERFORMAT)
+
+        # wc = win32gui.WNDCLASS()
+        # wc.lpfnWndProc = message_map
+        # wc.lpszClassName = 'MyWindowClass'
+        # hinst = wc.hInstance = win32api.GetModuleHandle(None)
+        # classAtom = win32gui.RegisterClass(wc)
+        # self.hwnd = win32gui.CreateWindow(
+        #     classAtom,
+        #     "win32gui test",
+        #     0,
+        #     0,
+        #     0,
+        #     win32con.CW_USEDEFAULT,
+        #     win32con.CW_USEDEFAULT,
+        #     0,
+        #     0,
+        #     hinst,
+        #     None
+        # )
+        # print self.hwnd
+
+        # StopEvent = win32event.CreateEvent(None, 0, 0, None)
+        #
+        # while 1:
+        #     rc = win32event.MsgWaitForMultipleObjects(
+        #         StopEvent,
+        #         0,  # Wait for all = false, so it waits for anyone
+        #         200,  # (or win32event.INFINITE)
+        #         win32event.QS_ALLEVENTS)  # Accepts all input
+
         # root = Tk()
         # root.bind('<Control-v>', self.testPaste())
+
+    def testHook(self):
+        print "hooked"
 
     def qtApp(self):
         app = QtGui.QApplication(sys.argv)
@@ -223,17 +278,80 @@ class ActivityStore:
 
         # self.sniffer.clipboard_hook = self.got_changed_clipboard
 
-        #watcher = ClipboardWatcher(self.got_changed_clipboard, 1.)
-        #watcher.start()
+        # watcher = ClipboardWatcher(self.got_changed_clipboard, 1.)
+        # watcher.start()
 
 
         # root = Tk()
         # root.bind('<Control-v>', self.testPaste())
         # root.update()
 
+        # self.getWindowsMessages()
+        pythoncom.PumpMessages()
+
         self.sniffer.run()
 
+    def getWindowsMessages(self):
+        # # Create a hidden window that will receive messages for things
+        # # like adding new handles to wait on or quitting the thread.
+        # # I use the Button class because I'm too lazy to register my own.
+        # theWindow = win32gui.CreateWindow("Button",  # lpClassName
+        #                                   "",  # lpWindowName
+        #                                   0,  # dwStyle
+        #                                   0,  # x
+        #                                   0,  # y
+        #                                   0,  # width
+        #                                   0,  # height
+        #                                   0,  # parent
+        #                                   0,  # menu
+        #                                   0,  # hInstance
+        #                                   None  # lParam
+        #                                   )
+        # # list of process handles to wait for
+        # handles = []
+        #
+        # while True:
+        #     #val = MsgWaitForMultipleObjects(handles, 0, INFINITE, QS_POSTMESSAGE | QS_ALLEVENTS)
+        #
+        #     status, msg = win32gui.PeekMessage(None,
+        #                                            0,
+        #                                            0,
+        #                                            win32con.PM_REMOVE)
+        #     while status != 0:
+        #             if msg[1] == win32con.WM_RENDERFORMAT:
+        #                 print "IS WM_RENDERFORMAT"
+        #             else:
+        #                 # Drop all other messages, since we receive all messages, not
+        #                 # just WM_NEW_PHANDLE and WM_CLOSE_THREAD.
+        #                 pass
+        #
+        #             status, msg = win32gui.PeekMessage(
+        #                 None,
+        #                 0,
+        #                 0,
+        #                 win32con.PM_REMOVE)
 
+
+
+
+
+
+        try:
+            msg = wintypes.MSG()
+            while win32gui.PeekMessage(None, 0, 0, win32con.PM_REMOVE) != 0:
+
+                #win32gui.TranslateMessage(byref(msg))
+                #win32gui.DispatchMessage(byref(msg))
+                #print msg.message
+
+                if msg.message == win32con.WM_RENDERFORMAT:
+                    print "was WM_RENDERFORMAT"
+
+                # user32.TranslateMessage(byref(msg))
+                # user32.DispatchMessageA(byref(msg))
+
+        finally:
+            print "finally"
 
     def testChanged(self):
         print("TEST")
@@ -282,7 +400,30 @@ class ActivityStore:
 
         print ("GOT CLIPBOARD")
 
+        # win32clipboard.OpenClipboard()
+        # win32clipboard.EmptyClipboard()
+        # try:
+        #     win32clipboard.SetClipboardData(win32clipboard.CF_TEXT, None)
+        # finally:
+        #     win32clipboard.CloseClipboard()
+
+        # user32.OpenClipboard(0)
+        # user32.EmptyClipboard()
+        # user32.SetClipboardData(1, None)
+        # user32.CloseClipboard()
+
+        #self.getWindowsMessages()
+
+        # msg = wintypes.MSG()
+        # print msg.message
+
+        # win32clipboard.SetClipboardData(0, "test")
+
         self.store_clipboard()
+
+
+
+
 
     def got_screen_change(self, process_name, window_name, win_x, win_y, win_width, win_height):
         """Receives a screen change and stores any changes.
@@ -369,7 +510,7 @@ class ActivityStore:
         clipboard_content = clipboard.text()
         types = str(mimeData.formats())
 
-        print(self.register_clipboard_formats())
+        # print(self.register_clipboard_formats())
 
         hasUrls = mimeData.hasUrls()
         hasText = mimeData.hasText()
@@ -380,15 +521,12 @@ class ActivityStore:
         image_height = image.height()
         image_width = image.width()
 
-        print("WAS CTRL+C", self.was_ctrl_c)
-        print("WAS CTRL+V", self.was_ctrl_v)
-        print("WAS CTRL+X", self.was_ctrl_x)
+        # print("WAS CTRL+C", self.was_ctrl_c)
+        # print("WAS CTRL+V", self.was_ctrl_v)
+        # print("WAS CTRL+X", self.was_ctrl_x)
 
 
-
-
-        print (clipboard_content)
-        print (types)
+        # print (clipboard_content)
 
         keys = [press.key for press in self.key_presses]
         timings = [press.time for press in self.key_presses]
@@ -399,11 +537,9 @@ class ActivityStore:
 
         hot_key_used = False
 
-
         for key in keys[-2:]:
             print ("KEY", key)
             print(str(key))
-
 
             lastTwoKeys.append(key)
 
@@ -415,7 +551,8 @@ class ActivityStore:
             hot_key_used = True
 
         self.session.add(
-            Clipboard(clipboard_content.encode('utf8'), types, hasHtml, hasImage, hasText, hasUrls, image_height, image_width, self.was_ctrl_c, self.was_ctrl_v, self.was_ctrl_x,
+            Clipboard(clipboard_content.encode('utf8'), types, hasHtml, hasImage, hasText, hasUrls, image_height,
+                      image_width, self.was_ctrl_c, self.was_ctrl_v, self.was_ctrl_x,
                       self.current_window.proc_id,
                       self.current_window.win_id,
                       self.current_window.geo_id))
@@ -466,8 +603,7 @@ class ActivityStore:
 
         now = time.time()
 
-
-        print keycode
+        # print keycode
 
         self.was_ctrl_c = False
         self.was_ctrl_v = False
@@ -476,33 +612,30 @@ class ActivityStore:
         if (keycode == '22' or string == 'v'):
             print "was v"
             if (self.lastKeyWasCtrl):
-                print ("STRG-V")
+                # print ("STRG-V")
                 self.was_ctrl_v = True
                 self.store_clipboard()
-
-
 
         if (keycode == '3' or string == 'c'):
             print "was c"
             if (self.lastKeyWasCtrl):
-                print ("STRG-C")
+                # print ("STRG-C")
                 self.was_ctrl_c = True
 
         if (keycode == '24' or string == 'x'):
             print "was x"
             if (self.lastKeyWasCtrl):
-                print ("STRG-X")
+                # print ("STRG-X")
                 self.was_ctrl_x = True
 
-        if(len(state)):
-            if(state[0] == 'Ctrl'):
-                print "was control"
+        if (len(state)):
+            if (state[0] == 'Ctrl'):
+                # print "was control"
                 self.lastKeyWasCtrl = True
             else:
                 self.lastKeyWasCtrl = False
         else:
             self.lastKeyWasCtrl = False
-
 
         if string in SKIP_MODIFIERS:
             return
@@ -559,5 +692,3 @@ class ActivityStore:
             k.encrypt_text(dtext, new_encrypter)
             k.encrypt_keys(dkeys, new_encrypter)
         self.session.commit()
-
-

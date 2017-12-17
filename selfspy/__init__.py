@@ -51,6 +51,15 @@ from PySide import QtGui, QtCore
 
 from Tkinter import *
 
+import ctypes
+from ctypes import wintypes
+import win32con
+
+import win32event
+
+byref = ctypes.byref
+user32 = ctypes.windll.user32
+
 ROOT = Tk()
 LABEL = Label(ROOT, text="Hello, world!")
 LABEL.pack()
@@ -226,7 +235,7 @@ def qtApp():
 
     QtGui.QApplication.processEvents()
 
-    app.exec_()  # <---------- code blocks over here
+    app.exec_()
 
 
 def testChanged():
