@@ -181,6 +181,8 @@ class ActivityStore:
         self.was_ctrl_v = False
         self.was_ctrl_x = False
 
+
+        # Start QT App in new thread, for receiving clipboard changes
         t = threading.Thread(target=self.qtApp)
         t.daemon = True
         t.start()
@@ -233,6 +235,7 @@ class ActivityStore:
         app = QtGui.QApplication(sys.argv)
         clipboard = app.clipboard()
 
+        # Connect clipboard changes to got_changed_clipboard
         clipboard.dataChanged.connect(self.got_changed_clipboard)
 
         app.exec_()
@@ -400,6 +403,7 @@ class ActivityStore:
 
         print ("GOT CLIPBOARD")
 
+        # Trying to implement Delayed Rendering
         # win32clipboard.OpenClipboard()
         # win32clipboard.EmptyClipboard()
         # try:
@@ -419,6 +423,8 @@ class ActivityStore:
 
         # win32clipboard.SetClipboardData(0, "test")
 
+
+        # Store clipboard data
         self.store_clipboard()
 
 
@@ -550,6 +556,7 @@ class ActivityStore:
         if ("Ctrl" in str(lastTwoKeys[0:])):
             hot_key_used = True
 
+        # Prepare for storing clipboard data in SQLite database
         self.session.add(
             Clipboard(clipboard_content.encode('utf8'), types, hasHtml, hasImage, hasText, hasUrls, image_height,
                       image_width, self.was_ctrl_c, self.was_ctrl_v, self.was_ctrl_x,

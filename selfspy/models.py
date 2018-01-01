@@ -50,6 +50,7 @@ class SpookMixin(object):
 
 
 class Clipboard(SpookMixin, Base):
+    # Clipboard class for storing data in database, receives data from activity_store.py
     clipboard_content = Column(Binary, nullable=False)
     types = Column(Binary, nullable=False)
 
